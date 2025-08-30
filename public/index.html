@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MongoDB Local Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsoneditor@10.1.0/dist/jsoneditor.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jsoneditor@10.1.0/dist/jsoneditor.min.js"></script>
+  <link rel="icon" href="data:," />
+  <style>
+    .sidebar { width: 300px; }
+    .jsoneditor { border-radius: 0.5rem; }
+  </style>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { brand: { DEFAULT: '#10b981' } } } } };
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="flex h-screen">
+    <aside class="sidebar bg-white border-r border-gray-200 p-4 overflow-y-auto">
+      <h1 class="text-xl font-semibold mb-4">MongoDB Dashboard</h1>
+      <div class="space-y-2">
+        <label class="text-sm font-medium">Connection URI</label>
+        <input id="uri" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" placeholder="mongodb://localhost:27017" />
+        <button id="connectBtn" class="w-full bg-brand text-white rounded px-3 py-2 text-sm hover:bg-emerald-600">Connect</button>
+        <button id="disconnectBtn" class="w-full bg-gray-800 text-white rounded px-3 py-2 text-sm hover:bg-black hidden">Disconnect</button>
+      </div>
+      <div class="mt-6">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-gray-700">Databases</h2>
+          <button id="refreshDbs" class="text-xs text-brand hover:underline">Refresh</button>
+        </div>
+        <ul id="dbList" class="mt-2 space-y-1 text-sm"></ul>
+      </div>
+      <div class="mt-6">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-gray-700">Collections</h2>
+          <button id="refreshCollections" class="text-xs text-brand hover:underline">Refresh</button>
+        </div>
+        <ul id="collList" class="mt-2 space-y-1 text-sm"></ul>
+      </div>
+    </aside>
+    <main class="flex-1 p-6 overflow-y-auto">
+      <div class="max-w-7xl mx-auto">
+        <div id="status" class="mb-4 text-sm"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2 bg-white border border-gray-200 rounded p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold">Query</h3>
+              <div class="space-x-2">
+                <button id="runQuery" class="bg-brand text-white rounded px-3 py-1.5 text-sm">Run</button>
+                <button id="exportBtn" class="bg-gray-800 text-white rounded px-3 py-1.5 text-sm">Export</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label class="text-xs text-gray-600">Filter (EJSON)</label>
+                <textarea id="filterInput" class="w-full h-24 rounded border border-gray-300 p-2 text-xs" placeholder="{ }"></textarea>
+              </div>
+              <div>
+                <label class="text-xs text-gray-600">Sort</label>
+                <textarea id="sortInput" class="w-full h-24 rounded border border-gray-300 p-2 text-xs" placeholder="{ }"></textarea>
+              </div>
+              <div>
+                <label class="text-xs text-gray-600">Projection</label>
+                <textarea id="projInput" class="w-full h-24 rounded border border-gray-300 p-2 text-xs" placeholder="{ }"></textarea>
+              </div>
+              <div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-xs text-gray-600">Skip</label>
+                    <input id="skipInput" type="number" class="w-full rounded border border-gray-300 p-2 text-xs" value="0" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-600">Limit</label>
+                    <input id="limitInput" type="number" class="w-full rounded border border-gray-300 p-2 text-xs" value="50" />
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <button id="addDocBtn" class="w-full bg-emerald-100 text-emerald-800 rounded px-3 py-1.5 text-sm">Add Document</button>
+                </div>
+                <div class="mt-2">
+                  <button id="importBtn" class="w-full bg-indigo-100 text-indigo-800 rounded px-3 py-1.5 text-sm">Import JSON</button>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4" id="results"></div>
+          </div>
+          <div class="bg-white border border-gray-200 rounded p-4">
+            <h3 class="font-semibold mb-3">Document Editor</h3>
+            <div id="editor" style="height: 520px;"></div>
+            <div class="flex items-center justify-end space-x-2 mt-3">
+              <button id="saveDocBtn" class="bg-brand text-white rounded px-3 py-1.5 text-sm">Save</button>
+              <button id="deleteDocBtn" class="bg-red-600 text-white rounded px-3 py-1.5 text-sm">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="importModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-6">
+    <div class="bg-white rounded shadow-lg w-full max-w-3xl p-4">
+      <div class="flex items-center justify-between">
+        <h4 class="font-semibold">Import JSON (array of documents)</h4>
+        <button id="closeImport" class="text-gray-500">✕</button>
+      </div>
+      <textarea id="importTextarea" class="w-full h-64 border border-gray-300 rounded p-2 text-xs mt-3" placeholder='[ { "name": "Alice" } ]'></textarea>
+      <div class="flex items-center justify-end space-x-2 mt-3">
+        <button id="confirmImport" class="bg-brand text-white rounded px-3 py-1.5 text-sm">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
+
